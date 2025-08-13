@@ -21,8 +21,8 @@ namespace VulnerableApp.API.Services
         // SQL Injection vulnerability - using raw SQL with string concatenation
         public async Task<User?> AuthenticateAsync(string username, string password)
         {
-            var sql = $"SELECT * FROM Users WHERE Username = '{username}' AND Password = '{password}'";
-            var users = await _context.Users.FromSqlRaw(sql).ToListAsync();
+            var sql = "SELECT * FROM Users WHERE Username = @username AND Password = @password";
+            var users = await _context.Users.FromSqlRaw(sql, new Microsoft.Data.SqlClient.SqlParameter("@username", username), new Microsoft.Data.SqlClient.SqlParameter("@password", password)).ToListAsync();
             return users.FirstOrDefault();
         }
 
