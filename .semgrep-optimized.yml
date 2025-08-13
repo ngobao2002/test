@@ -1,0 +1,358 @@
+rules:
+  # 1. SQL Injection Detection (Combined #1 + #14)
+  - id: sql-injection-vulnerability
+    message: "Potential SQL injection vulnerability detected"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          $OBJ.FromSqlRaw($QUERY)
+      - pattern: |
+          FromSqlRaw($QUERY)
+      - pattern: |
+          var $VAR = $"SELECT * FROM $TABLE WHERE $FIELD = '{$INPUT}'";
+      - pattern: |
+          $"SELECT * FROM $TABLE WHERE $FIELD = '{$INPUT}'"
+      - pattern: |
+          "SELECT * FROM " + $TABLE + " WHERE " + $FIELD + " = '" + $INPUT + "'"
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+
+  # 2. Hardcoded Credentials (Combined #2 + #10 + #32)
+  - id: hardcoded-credentials
+    message: "Hardcoded credentials detected"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          var jwtKey = "$KEY";
+      - pattern: |
+          Password = "$PASS"
+      - pattern: |
+          var connectionString = "Server=localhost;Database=VulnerableAppDB;User Id=sa;Password=Admin123!;TrustServerCertificate=true;";
+      - pattern: |
+          var connectionString = "Server=...Password=$PASS...";
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  # 3. Insecure JWT Configuration
+  - id: insecure-jwt-validation
+    message: "Insecure JWT validation detected"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: ValidateIssuer = false
+      - pattern: ValidateAudience = false
+      - pattern: ValidateLifetime = false
+    metadata:
+      category: security
+      cwe: "CWE-287: Improper Authentication"
+
+  # 4. Insecure Deserialization
+  - id: insecure-deserialization
+    message: "Dangerous deserialization with TypeNameHandling.All"
+    severity: ERROR
+    languages: [csharp]
+    pattern: TypeNameHandling = TypeNameHandling.All
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  # 5. XSS in Angular Templates (Combined #5, #16, #26, #36)
+  - id: angular-xss-vulnerability
+    message: "XSS vulnerability: [innerHTML] binding without sanitization"
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: |
+          [innerHTML]="welcomeMessage"
+      - pattern: |
+          [innerHTML]="displayBio"
+      - pattern: |
+          [innerHTML]="searchResults"
+      - pattern: |
+          [innerHTML]="comment"
+      - pattern: |
+          [innerHTML]="$VAR"
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+
+  # 6. URL Parameter XSS (Combined #25, #28, #38)
+  - id: url-parameter-xss
+    message: "URL parameter used without sanitization (XSS risk)"
+    severity: ERROR
+    languages: [typescript]
+    patterns:
+      - pattern: |
+          const $VAR = urlParams.get('$PARAM');
+      - pattern: |
+          this.welcomeMessage = $VAR;
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+
+  # 7. String Interpolation XSS
+  - id: string-interpolation-xss
+    message: "XSS via string interpolation without sanitization"
+    severity: ERROR
+    languages: [typescript]
+    pattern: |
+      this.searchResults = `<p>Search results for: <strong>${this.searchTerm}</strong></p>`;
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+
+  # 8. Eval Usage
+  - id: eval-usage
+    message: "Dangerous use of eval() function"
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern: eval($CODE)
+    metadata:
+      category: security
+      cwe: "CWE-94: Code Injection"
+
+  # 9. CORS Misconfiguration (Combined #7, #21, #30)
+  - id: cors-insecure-config
+    message: "Insecure CORS configuration allowing all origins"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          policy.AllowAnyOrigin()
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+      - pattern: |
+          AllowAnyOrigin()
+    metadata:
+      category: security
+      cwe: "CWE-346: Origin Validation Error"
+
+  # 10. Vulnerable Package Detection
+  - id: vulnerable-packages
+    message: "Usage of packages with known vulnerabilities"
+    severity: ERROR
+    languages: [json]
+    paths:
+      include:
+        - "package.json"
+    pattern-either:
+      - pattern: |
+          "jquery": "2.1.4"
+      - pattern: |
+          "lodash": "4.17.4"
+      - pattern: |
+          "Newtonsoft.Json": "10.0.1"
+    metadata:
+      category: security
+      cwe: "CWE-1104: Use of Unmaintained Third Party Components"
+
+  # 11. Plain Text Password (Combined #9, #27, #37)
+  - id: plaintext-password-field
+    message: "Password stored as plain text in model"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          public string Password { get; set; } = string.Empty; // Plain text password
+      - pattern: |
+          public string Password { get; set; }
+    metadata:
+      category: security
+      cwe: "CWE-256: Unprotected Storage of Credentials"
+
+  # 12. Debug Endpoint Exposure (Combined #11, #31, #40)
+  - id: debug-endpoint-exposure
+    message: "Debug endpoint exposed with sensitive information"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          [HttpGet("debug/config")]
+      - pattern: |
+          [HttpGet("debug/$PATH")]
+      - pattern: |
+          Route("debug/$PATH")
+    metadata:
+      category: security
+      cwe: "CWE-200: Information Exposure"
+
+  # 13. Missing Input Validation (Combined #12, #29)
+  - id: missing-input-validation
+    message: "Controller method lacks input validation"
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern: |
+          public async Task<IActionResult> $METHOD([FromBody] $TYPE $PARAM)
+          {
+            // No input validation - Security vulnerability
+            ...
+          }
+    metadata:
+      category: security
+      cwe: "CWE-20: Improper Input Validation"
+
+  # 14. Long JWT Expiry
+  - id: long-jwt-expiry
+    message: "JWT token with extremely long expiry time"
+    severity: WARNING
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          Expires = DateTime.UtcNow.AddYears($YEARS)
+      - pattern: |
+          AddYears($YEARS)
+    metadata:
+      category: security
+      cwe: "CWE-613: Insufficient Session Expiration"
+
+  # 15. Environment Variable Exposure
+  - id: environment-exposure
+    message: "Environment variables exposed"
+    severity: WARNING
+    languages: [csharp]
+    pattern: Environment.GetEnvironmentVariables()
+    metadata:
+      category: security
+      cwe: "CWE-200: Information Exposure"
+
+  # 16. Frontend Hardcoded Credentials (Combined #17, #35, #41)
+  - id: frontend-hardcoded-credentials
+    message: "Hardcoded credentials exposed in frontend"
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: |
+          defaultCredentials: { username: "$USER", password: "$PASS" }
+      - pattern: |
+          apiKey: "$KEY"
+      - pattern: |
+          secretKey: "$SECRET"
+      - pattern: |
+          defaultCredentials = environment.defaultCredentials;
+      - pattern: |
+          apiKey = environment.apiKey;
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  # 17. Sensitive Data in API Response
+  - id: sensitive-data-exposure
+    message: "Sensitive data returned in API response"
+    severity: ERROR
+    languages: [csharp]
+    pattern-either:
+      - pattern: |
+          return Ok(users); // Returns all user data including passwords
+      - pattern: |
+          return Ok(new LoginResponse
+          {
+              Token = token,
+              User = user // Returning sensitive data including password
+          });
+    metadata:
+      category: security
+      cwe: "CWE-200: Information Exposure"
+
+  # 18. Profile Access Without Authorization Check
+  - id: profile-access-without-authz
+    message: "Profile endpoint allows access to any user's data"
+    severity: WARNING
+    languages: [csharp]
+    patterns:
+      - pattern: |
+          [HttpGet("profile/{$PARAM}")]
+          [Authorize]
+          public async Task<IActionResult> GetProfile(string $PARAM)
+          {
+            ...
+            var profile = await _userService.GetUserProfileAsync($ID);
+            ...
+            return Ok(profile);
+          }
+      - pattern-not: |
+          [HttpGet("profile/{$PARAM}")]
+          [Authorize]
+          public async Task<IActionResult> GetProfile(string $PARAM)
+          {
+            ...
+            if (...) { return Forbid(); }
+            ...
+          }
+    metadata:
+      category: security
+      cwe: "CWE-285: Improper Authorization"
+
+  # 19. Error Information Disclosure
+  - id: error-info-disclosure
+    message: "Sensitive error information disclosed"
+    severity: WARNING
+    languages: [csharp]
+    pattern: |
+      return BadRequest(new { error = ex.ToString() });
+    metadata:
+      category: security
+      cwe: "CWE-209: Information Exposure Through Error Messages"
+
+  # 20. Configuration File Credentials
+  - id: config-file-credentials
+    message: "Credentials stored in configuration files"
+    severity: ERROR
+    languages: [json]
+    paths:
+      include:
+        - "appsettings.json"
+        - "appsettings.*.json"
+    pattern-either:
+      - pattern: |
+          "Password": "$PASS"
+      - pattern: |
+          "SecretKey": "$SECRET"
+      - pattern: |
+          "ApiKeys": { ... }
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  # 21. LocalStorage Sensitive Data
+  - id: localstorage-sensitive-data
+    message: "Sensitive data stored in localStorage"
+    severity: WARNING
+    languages: [typescript]
+    pattern-either:
+      - pattern: |
+          localStorage.setItem('token', $TOKEN)
+      - pattern: |
+          localStorage.setItem('user', JSON.stringify($USER))
+      - pattern: |
+          localStorage.setItem('userBio_' + this.targetUserId, this.userBio);
+    metadata:
+      category: security
+      cwe: "CWE-922: Insecure Storage of Sensitive Information"
+
+  # 22. jQuery Vulnerability Usage
+  - id: jquery-vulnerable-usage
+    message: "Usage of vulnerable jQuery version"
+    severity: ERROR
+    languages: [typescript]
+    pattern: |
+      declare var $: any;
+    metadata:
+      category: security
+      cwe: "CWE-1104: Use of Unmaintained Third Party Components"
+
+paths:
+  exclude:
+    - "obj/**"
+    - "bin/**"
+    - "**/*.AssemblyInfo.cs"
+    - "**/*.GlobalUsings.g.cs"
+    - "**/*.AssemblyAttributes.cs"
+    - "**/*.MvcApplicationPartsAssemblyInfo.cs"
+    - "**/Debug/**"
+    - "**/Release/**"
+    - "node_modules/**"
